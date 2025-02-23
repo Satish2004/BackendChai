@@ -16,7 +16,7 @@
 
 // approach 2 using promises
 const asyncHandler = (request) => {
-  (req, res, next) => {
+  return (req, res, next) => {
     promis.resolve(request(req, res, next)).reject((err) => next(err)); // yaha reject ki jagah catch bhi ho sakta hia
   };
 };
