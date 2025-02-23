@@ -1,0 +1,18 @@
+//  storage yaha middleware hi ban gya
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./public/temp");
+  },
+  filename: function (req, file, cb) {
+    // const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    // cb(null, file.fieldname + "-" + uniqueSuffix);
+    cb(null, file.originalname);
+    // yaha originalName agr de rhe hai to  local file me jaise upload hoti hai cloudinary me jane se phle to overright bhi ho skati hgai isliye thoda unique name hona chiaye but abhi ke liye thik hi
+    // ye kaam production level me dhyan dene wali baat hai
+  },
+});
+
+export const upload = multer({ storage: storage });
+// ab ye kaam mera routes likhte time me karuga as middleware
+// ek routes rahega jo upload file ko hit karega then waha se storage middlware ko call krke controller ko dunga
