@@ -2,9 +2,9 @@
 //   it take the File path in local Server as temporary and store in cloudinary
 // once it stores the file in cloudinary then unlink from the local server
 
-import { v2 } from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import fs from fs;
-// Configuration
+// Configuration ki env me kya kya hoga
 cloudinary.config({ 
     cloud_name:process.env.CLODUDINARY_NAME, 
     api_key: process.env.CLODUDINARY_API_KEY, 
@@ -21,7 +21,7 @@ const uploadFileOnCloudinary = async (localFilePath)=>{
         const responseFromCloudinary = await cloudinary.uploader.upload(localFilePath,{
             resouce_type:"auto",  // sab k liye allow pdf , img , video
         }) 
-        console.log("file has been uploaded", responseFromCloudinary);
+        console.log("file has been uploaded", responseFromCloudinary.url);
         return responseFromCloudinary;
     } catch (error) {
         
