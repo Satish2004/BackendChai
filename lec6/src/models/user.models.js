@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+// import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 // ab direct thodi na usme hashing kr dene just data store krne se phle hashing kr denge uske liye middleware hook pre use krenge
 // pre hook isliye use krte hain taki data store hone se pehle kuch kr ske
