@@ -3,7 +3,22 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+
+// Function of generaate access and refersh token
+
+const generateAccessTokenAndRefershToken = async (userId) => {
+  const user = await User.findById(userId);
+  // ab yaha wala user User(model hai) usse baat kar raha hia kyunki ye variable me hai uske
+  const accessToken = user.generateAccessToken();
+  const refereshToken = user.generateRefereshToken();
+  // then save in model
+  user.refereshToken = refereshToken;
+  await user.save({ validateBeforeSave: false });
+  return { accessToken, refereshToken };
+};
+
 //user  jab register routes me hit krega taab ye logic chalega
+// REGSITER -->
 
 //higher order function bana hai
 const registerUser = asyncHandler(async (req, res) => {
@@ -61,6 +76,8 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatart Is Required!");
   }
 
+  //  ab sab kya hia pending with apne apne data ke sath --> ab unko actually me database ko dena
+
   // aab baat aati hai in sabko db me fir se upload kr du
   // jaise ki avatar kya tha required to uso har jagah check kiye but civerImage ko fir se entry karate time user coverImage dala hi ni to
   // to corner or base case hit hoga aur dala to URL dedo nahi to empty bhej de
@@ -98,4 +115,92 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-export { registerUser };
+// LOGIN -->
+
+const loginUser = asyncHandler(async (req, res) => {
+  //  todos
+  //step1 -> req.body se data lao
+  // step2-> username or email pe karao login if doesnt exist return error
+  // step3 find the user ki is name se model me useranme aur email se koi exist krta hi ki nai
+  // step4 --> check password ki jo model wala pass word hai aur jo de rha hai wo isCorrect hai ya ni (bcrypt ka method hai se)
+  // step5 ->agar error diya to return error nahi to direct isko client ke pass secure cookie bhej do
+  // step6->then ek separate method bana lo generateAndAccessToken ka then use again and again
+  // step 7 -> send cookie
+  const { email, username, password } = req.body; // yaha wala password jo user register ke baad dal rha hai
+  if (!email && !username) {
+    throw new ApiError(402, "username or email is required");
+  }
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist!");
+  }
+  // yaha main user se password leke jo database wala "password" hai usko correct hai ki nai puch raha hi jo bool me hai
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(404, "Password is incorrect!");
+  }
+
+  // ab jo generate kiya hu access and referesh token use usko call karo with har user ki unique id ke sath and jo return kr rha hai  accessToken and refershToken
+  // use distructure kr lo and cookie me bhej do
+  const { accessToken, refereshToken } =
+    await generateAccessTokenAndRefershToken(user._id);
+
+  // cookie me bhejne se phle sensitive data ko select krke nahi bhejunga
+  const loggedUser = await User.findById(user._id).select(
+    "-password -refereshToken"
+  );
+  // then send the cookie
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options) // cookie me jayega
+    .cookie("refereshToken", refereshToken, options) // res send ke sath ye bhi cookie me jayega
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedUser, accessToken, refereshToken },
+        "User logged in successfully!"
+      )
+    );
+});
+
+// LOGOUT-->
+
+const logoutUser = asyncHandler(async (req, res) => {
+  // logout kru but kiske base pe
+  // todo
+  //  ek middlewaere chalo ki uske veriFy jwt se useke user pata lg jaye user._id se
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refereshToken: undefined,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  res
+    .send(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refereshToken", options)
+    .json(new ApiResponse(200, {}, "User Logged Out!"));
+});
+
+export { registerUser, loginUser, logoutUser };
+// 36-->

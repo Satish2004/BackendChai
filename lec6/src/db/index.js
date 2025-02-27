@@ -3,9 +3,7 @@ import { MONGO_DB_NAME } from "../constants.js";
 
 const connectDB = async () => {
   try {
-    const connectionInvent = mongoose.connect(
-      `${process.env.MONGO_URI}/${MONGO_DB_NAME}`
-    );
+    const connectionInvent = mongoose.connect(`${process.env.MONGO_URI}`);
 
     console.log(`MongoDB connected DB host: ${connectionInvent}`); // yaha mongodb ka username and pass nahi hai uske liye 0.11 dolar lg raha hai\
   } catch (error) {

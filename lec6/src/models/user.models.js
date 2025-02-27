@@ -80,7 +80,8 @@ userSchema.pre("save", async function (next) {
 });
 
 // this methods is compare the password mainPass and hashPass
-userSchema.methods.comparePassword = async function (password) {
+// yaha isPasswordCorrect variable hia
+userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
