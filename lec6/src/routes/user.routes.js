@@ -4,7 +4,9 @@ import {
   loginUser,
   logoutUser,
   registerUser,
+  refereshAccessToken,
 } from "../controllers/user.controller.js";
+
 // step 2 --> use
 const router = Router();
 import { upload } from "../middlewares/multer.middleware.js";
@@ -26,4 +28,6 @@ router.route("/register").post(
 router.route("/login").post(loginUser);
 // logout
 router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/refresh-token").post(refereshAccessToken);
+
 export default router;

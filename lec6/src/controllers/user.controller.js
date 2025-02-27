@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
 
 // Function of generaate access and refersh token
 
@@ -202,5 +203,55 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User Logged Out!"));
 });
 
-export { registerUser, loginUser, logoutUser };
-// 36-->
+// end point jaha se user ReferesToken lekar fir se accessToken krke session start krega -> ye end point ka sirf controller hai end point routes me dena hoga
+const refereshAccessToken = asyncHandler(async (req, res) => {
+  // get the refresh token cookie se ya fir mobile se ho to body se
+  const incomingRefereshToken =
+    req.cookies.refereshToken || req.body.refereshToken;
+
+  if (!incomingRefereshToken) {
+    throw new ApiError(401, "unauthorized request!");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefereshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(decodedToken?._id);
+
+    if (!user) {
+      throw new ApiError(401, "Invalid Referesh Token!");
+    }
+
+    // jo refersh token aa raha hai aur jo user model phle se refreshToken hai db me wo match ni kiye to error else
+    if (incomingRefereshToken !== user?.refereshToken) {
+      throw new ApiError(401, " Refresh token is expired or used ! ");
+    }
+
+    // agar sab sahi raha to generateAccessToekn function ko call kr do with userId ke saath
+    const { accessToken, newRefereshToken } =
+      await generateAccessTokenAndRefershToken(user._id);
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refereshToken", newRefereshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { accessToken, refereshToken: newRefereshToken },
+          "Access Token Refreshed Successfully!"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(error?.message || "Invalid refresh token!");
+  }
+});
+
+export { registerUser, loginUser, logoutUser, refereshAccessToken };
