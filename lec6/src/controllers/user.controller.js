@@ -254,4 +254,131 @@ const refereshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refereshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  // agar wo change kr paa rha hai to obvious hai ki loggin hai
+  // aur agar login hai pahle se to chup chap user ko dhund lo uske unique id se
+
+  const user = await User.findById(req.user?._id);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(403, "Invalid old Password");
+  }
+
+  // agar sab sahi raha tab mongodb ke jo password field hai usme jo naya password aaya hai usko dedo
+  // user. karnge tb sab access ho jayega
+  user.password = newPassword;
+  //then save in db
+  await user.save({ validateBeforeSave: false });
+  // sab thik raha to return
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password change Successfully!"));
+  // Return में {} देने का कारण यह है कि इस API का मुख्य उद्देश्य सिर्फ पासवर्ड बदलना है, न कि नया डेटा रिटर्न करना।
+  // बाकी APIs में अगर नया डेटा (जैसे नया यूजर, अपडेटेड प्रोफाइल, या कोई और रिसोर्स) बन रहा होता, तो उसे JSON response में भेजना ज़रूरी होता।
+});
+const getCurrentUser = asyncHandler(async (req, res) => {
+  // we can directly access the user we have already inject the user on db  only we access this user from the db
+  // and lekar use res send kr rhe hai
+  const user = req.user;
+  return res.status(200).json(200, user, "current user fetched successfully!");
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!fullname || !email) {
+    throw new ApiError(402, "All field are required!");
+  }
+
+  // ab us user ko dhundunga or usi me hi change karuha aue jo mi chaliye use select me daal dunga
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullname,
+        email,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  //  then sb  thik to return
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully!"));
+});
+
+const updateAvatar = asyncHandler(async (req, res) => {
+  const localFileOfAvatar = req.file?.path; // ye mera file --> files ni hoga kyunki yahah hum specific isich ke liye kr rhe hai
+  // but waha kya tha ki bahut sare arr the isliye files.path[0]-> aisa kuch de rhe the
+  // ab ise hum direct jo hai wo database me store kara skte hai but storage ka dikat hoga
+  // isliye sabse phle ise cloudinary me save krayenge then isse url ko lekar db me update kr dunha
+  if (!localFileOfAvatar) {
+    throw new ApiError(403, "Avatar file is misssing!");
+  }
+  // nahi to cloudnary me upload
+  const uploadingOnCloudinary = await uploadFileOnCloudinary(localFileOfAvatar); // yaha se img ka url aa rha h from cloudinary
+  // console.log(uploadFileOnCloudinary); --> ye mere ko pura obbject return karega  but isme ka mujhe url chaiye
+  if (!uploadingOnCloudinary.url) {
+    throw new ApiError(402, " Error while uploading file on avatar!");
+  }
+  // ab update kr dete hai yaha milega cl;oudinary se pura object but hume url milega string aur  wahi use kr na hai
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      avatar: uploadFileOnCloudinary.url,
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  // sab kuch thik to resturn kr to return
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar updated successfully!"));
+});
+
+const updateCoverImg = asyncHandler(async (req, res) => {
+  const localCoverImg = req.file?.path;
+
+  if (!localCoverImg) {
+    throw new ApiError(401, "Cover image is required!");
+  }
+
+  const uploadingCoverImg = await uploadFileOnCloudinary(localCoverImg);
+
+  if (!uploadingCoverImg.url) {
+    throw new ApiError(402, "Cover image doesn't exist!");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      coverImage: uploadingCoverImg.url,
+    },
+    { new: true }
+  ).select("-password");
+
+  // sab thik raha tb
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover Image is updated!"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refereshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateAvatar,
+  updateCoverImg,
+};
