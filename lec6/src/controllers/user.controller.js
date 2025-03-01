@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // Function of generaate access and refersh token
 
@@ -395,7 +396,7 @@ const getUserChannel = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "subscriptions", // kaha se
-        localField: "_id", // us field ke kiisee
+        localField: "_id", // us field ke kiisee YAHA ID ISLIYE TAKI US USER KI SPECIFIC NIKAAL SAKE
         foreignField: "channel", // obtain subscriber  kaha par present hoga
         as: "Subscribers", // nickname arry ke form aayega yahi name se
       },
@@ -456,6 +457,67 @@ const getUserChannel = asyncHandler(async (req, res) => {
 });
 
 // History ke liye bhi rahega jo video model user model pr dono pr depends
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      // Video ke andar hu aur watchHistory ko le rha hu
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        //nested lookup--> using pipeline-->
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+
+              pipeline: [
+                // ye sab owner me hi jayega kyunki ye owner me hi nested hai
+
+                {
+                  $project: {
+                    fullname: 1,
+                    username: 1,
+                    // views: 1,
+                    avatar: 1,
+                    // coverImage: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+      //ab ise me user(owner) ka bhi aayega
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user.watHistory[0],
+        "watch history fetched successfully!"
+      )
+    );
+});
 
 export {
   registerUser,
@@ -468,4 +530,5 @@ export {
   updateAvatar,
   updateCoverImg,
   getUserChannel,
+  getWatchHistory,
 };
