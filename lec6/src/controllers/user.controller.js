@@ -371,6 +371,92 @@ const updateCoverImg = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover Image is updated!"));
 });
 
+// yaha se user rout hit karega then ye route me jayega like my chnnel frontend se then isko darsaa do
+
+const getUserChannel = asyncHandler(async (req, res) => {
+  const { username } = req.params; // koi form to ni de rhe hai jo body se nikalnge
+
+  if (!username) {
+    throw new ApiError(400, "Username is Missing!");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(), //model wala username: abhi wala username
+      },
+    },
+    // yaha dekhunga ki mera user kis kis channel ko subscribe kiya hia using lookup->
+    // lookup from -->me kaha se lega
+    // local field
+    // / foreign feilld aur uska name
+    // har banda ka subscriber cound krna h to uske channel ko dekhe wahi uska forignfeild hoga jo kahta hai kaha pe presend hoga
+    // YE WALA LOOPUP HAMARA US USER KE TOTAL SUBSCRIBER BATYEGA --> CHANNEL SE
+    {
+      $lookup: {
+        from: "subscriptions", // kaha se
+        localField: "_id", // us field ke kiisee
+        foreignField: "channel", // obtain subscriber  kaha par present hoga
+        as: "Subscribers", // nickname arry ke form aayega yahi name se
+      },
+    },
+    // YE WALA HAMARA WO USER JO KITTO KO SUBSCRIBE(CHANNEL) KIYA H WO BATAYEGA --> SUBSCRIBER SE
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo", //maaine kitno ko subscribe kiya hai
+      },
+    },
+    {
+      $addFields: {
+        //size of mere kitte subscriber hai
+        subscribersCount: {
+          $size: "$Subscribers", // dollar isliye kyunki ye field hi
+        },
+        //size of ki maine kitto ko subscribe kiye hai
+        channelSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$Subscribers.subscriber"] }, // field ke Subscubers hai aur dot ke baaad subscription.model.js ka subscriber
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    // ADD PROJECTION AGGREGATION KYUNKI YE HUME KUCH SELECTED DATA KO RETURN KRKE DETA HAI KI KYA DARSAANA HI
+    {
+      // ye return kr do baki frontend wala jaha chahe waha darsa sakta hai
+      $project: {
+        fullname: 1, // flag on kr do
+        username: 1,
+        subscribersCount: 1,
+        channelSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel doesn't exists!");
+  }
+
+  // ab sab thik rha to return kr do channel ko jada taar [0] hi kaam rhta hia
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, channel[0], "User Channel Fetched!"));
+});
+
+// History ke liye bhi rahega jo video model user model pr dono pr depends
+
 export {
   registerUser,
   loginUser,
@@ -381,4 +467,5 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImg,
+  getUserChannel,
 };
